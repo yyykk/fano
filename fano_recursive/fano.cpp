@@ -2,81 +2,71 @@
 //
 
 #include "iostream"
-#include <fstream>
-#include "map"
-#include "string"
 #include "math.h"
+#include "map"
+#include "fstream"
+#include "sstream"
 using namespace std;
 
+multimap<double, pair<string, string>> W;
 
-multimap<float, pair<string, string>> W;
+typedef multimap<double, pair<string, string>>::iterator map_pointer;
 
-void show(multimap<float, pair<string, string>> word);
+class fano{
+public:
+	fano(string file_name);
+	void show();
+	string to_fano_code(string str = "");
 
-typedef decltype(W.begin()) map_pointer;
+private:
+	int get_probability(string file_name);
+	int make_code(map_pointer begin_p, map_pointer end_p);
 
-int initial(string file_name, int max){
-	float probability = 0, temp = 0;
-	string str = "";
+private:
+	multimap<double, pair<string, string>> word;
+	multimap<string, string> already;
+	string get_text;
+};
+
+fano::fano(string file_name){
+	get_probability(file_name);
+	make_code(word.begin(), --word.end());
+	for (auto &w : word){
+		already.find(w.second.first)->second = w.second.second;
+	}
+}
+
+int fano::get_probability(string file_name){
+	double word_amount = 0;
+	double probability = 0;
 	ifstream infile;
+	ofstream outfile;
+	map<char, double> word_count;
 	infile.open(file_name, ios::in);
-	for (int i = 0; i < max; ++i){
-		infile >> temp >> str;
-		probability += temp;
-		W.insert({ temp, make_pair(str, "") });
-	}
-	if ((probability - 1) < 0.0001){
-		return 1;
-	}else{
-		cout << "Sum of probability != 1" << endl;
+	if (!infile){
+		cout << "can not open word text" << endl;
 		return 0;
+	}else{
+		getline(infile, get_text);
 	}
+	for (auto &s : get_text){
+		++word_count[s];
+		++word_amount;
+	}
+	outfile.open("probability.txt", ios::out);
+	for (auto &w : word_count){
+		ostringstream stream;
+		probability = w.second / word_amount;
+		stream << w.first;
+		outfile << stream.str() << "\t" << probability << endl;
+		word.insert({probability, make_pair(stream.str(), "")});
+		already.insert(make_pair(stream.str(), ""));
+	}
+	return 1;
 }
 
-void coding(decltype(W.begin()) word, float value){
-	if (fabs(word->first - value) < 0.00001){
-		return;
-	}
-	float pre_value = 0, now_value = 0, high_value = 0, low_value = 0, temp = 0;
-	auto pre_pointer = word;
-	auto now_pointer = word;
-	auto low = word;
-	for (auto m = word; ; ++m){
-		pre_pointer = now_pointer;
-		now_pointer = m;
-		pre_value = now_value;
-		now_value += m->first;
-		if (now_value >= (value / 2)){
-			break;
-		}
-	}
-	if ((now_value - (value / 2)) < ((value / 2) - pre_value)){
-		high_value = now_value;
-		low = now_pointer;
-	}
-	else{
-		high_value = pre_value;
-		low = pre_pointer;
-	}
-	low_value = value  - high_value;
-	for (auto m = word;; ++m){
-		temp += m->first;
-		if (temp <= high_value){
-			m->second.second += "1";
-		}
-		else{
-			m->second.second += "0";
-		}
-		if (temp == value){
-			break;
-		}
-	}
-	coding(word, high_value);
-	coding(++low, low_value);
-}
-
-int make_code(map_pointer high_pointer, map_pointer low_pointer){
-	float high_value = high_pointer->first, low_value = low_pointer->first;
+int fano::make_code(map_pointer high_pointer, map_pointer low_pointer){
+	double high_value = high_pointer->first, low_value = low_pointer->first;
 	auto hp = high_pointer, lp = low_pointer;
 	hp->second.second += "1";
 	lp->second.second += "0";
@@ -104,25 +94,29 @@ int make_code(map_pointer high_pointer, map_pointer low_pointer){
 	}
 }
 
-void show(multimap<float, pair<string, string>> word){
-	ofstream Outfile;
-	Outfile.open("text.txt", ios::out);
-	Outfile << "***********************************************************" << endl;
-	for (auto &m : word){
-		Outfile << m.second.first << "\t" << m.second.second << endl;
-		cout << m.second.first << "\t" << m.second.second << endl;
+void fano::show(){
+	for (auto &w : already){
+		cout << w.first << "\t" << w.second << endl;
 	}
 }
 
-int main(){
-	initial("probability_68.txt", 68);
-	//coding(W.begin(), 1);
-	if (make_code(W.begin(), --W.end())){
-		show(W);
-	}else{
-		cout << "error" << endl;
+string fano::to_fano_code(string str){
+	string code = "";
+	if (str == ""){
+		str = get_text;
 	}
-	
+	for (auto &s : str){
+		ostringstream stream;
+		stream << s;
+		code += already.find(stream.str())->second;
+	}
+	return code;
+}
+
+int main(){
+	fano f("demo.txt");
+	f.show();
+	cout << f.to_fano_code() << endl;
 	system("pause");
 }
 
